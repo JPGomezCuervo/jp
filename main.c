@@ -7,13 +7,11 @@
 #define BUFF_SIZE 1024
 
 void cleanup(int fd, char *buf);
+int read_file (char* path, char **content);
 
 int main(int argc, char **argv) 
 {
-
-    ssize_t bytes_readed = -1, rd_offset = 0, buf_size = 0;
-    char *buf;
-    int fd = -1;
+    char *content;
 
     if (argc != 2) 
     {
@@ -21,13 +19,35 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
 
+    if (read_file(argv[1], &content) == -1)
+        free(content);
+
+    free(content);
+
+    return 0;
+}
+
+void cleanup(int fd, char *buf) 
+{
+    if (fd != -1)
+        close(fd);
+
+    if (buf)
+        free(buf);
+}
+
+int read_file (char* path, char **content)
+{
+    ssize_t bytes_readed = -1, rd_offset = 0, buf_size = 0;
+    char *buf, *resize_buf;
+    int fd = -1;
     buf_size = BUFF_SIZE + 1; // Plus null char
     buf = malloc(buf_size); 
 
     if (buf == NULL) 
     {
         perror("Error on allocating");
-        exit(EXIT_FAILURE);
+        return -1;
     }
     else
     {
@@ -35,13 +55,13 @@ int main(int argc, char **argv)
         buf[0] = '\0';
     }
 
-    fd = open(argv[1], O_RDONLY);
+    fd = open(path, O_RDONLY);
 
     if (fd == -1) 
     {
         perror("Couldn't open the file");
         cleanup(fd, buf);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
 
@@ -59,7 +79,7 @@ int main(int argc, char **argv)
             {
                 perror("Couldn't reallocate");
                 cleanup(fd, buf);
-                exit(EXIT_FAILURE);
+                return -1;
             }
 
             buf = new_buf;
@@ -72,18 +92,22 @@ int main(int argc, char **argv)
     {
         perror("Couldn't read the file");
         cleanup(fd, buf);
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
-    cleanup(fd, buf);
+    resize_buf = realloc(buf, rd_offset);
+
+    if (!resize_buf) 
+    {
+        perror("Couldn't resize the buffer");
+        cleanup(fd, buf);
+        return -1;
+    }
+
+    resize_buf[rd_offset] = '\0';
+
+    *content = resize_buf;
+    close(fd);
+
     return 0;
-}
-
-void cleanup(int fd, char *buf) 
-{
-    if (fd != -1)
-        close(fd);
-
-    if (buf)
-        free(buf);
 }
